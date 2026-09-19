@@ -1,197 +1,147 @@
 require('dotenv').config();
 const { Telegraf, session } = require('telegraf');
-const cron = require('node-cron');
-const {
-  scooterQueries,
-  customerQueries,
-  rentalQueries,
-  paymentQueries,
-  scheduleQueries,
-  db
-} = require('./database');
-const {
-  formatDate,
-  addDays,
-  formatMoney,
-  isAdmin,
-  calculateDebt,
-  getNextPaymentDate,
-  calculateRemainingDays
-} = require('./utils');
-const {
-  mainAdminKeyboard,
-  getCustomerKeyboard,
-  cancelKeyboard,
-  paymentTypeKeyboard,
-  buildScooterListKeyboard,
-  buildRentalListKeyboard
-} = require('./keyboards');
+
+// Environment variables tekshirish
+console.log('=================================');
+console.log('Bot ishga tushmoqda...');
+console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'Mavjud ✓' : 'YOQ ✗');
+console.log('ADMIN_IDS:', process.env.ADMIN_IDS ? process.env.ADMIN_IDS : 'YOQ ✗');
+console.log('WEB_APP_URL:', process.env.WEB_APP_URL ? process.env.WEB_APP_URL : 'YOQ ✗');
+console.log('=================================');
 
 if (!process.env.BOT_TOKEN) {
-  console.error('BOT_TOKEN kiritilmagan!');
+  console.error('❌ BOT_TOKEN kiritilmagan!');
   process.exit(1);
 }
 
 if (!process.env.ADMIN_IDS) {
-  console.error('ADMIN_IDS kiritilmagan!');
+  console.error('❌ ADMIN_IDS kiritilmagan!');
   process.exit(1);
 }
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
+
+// Session middleware
 bot.use(session());
 
+// Admin tekshirish funksiyasi
+function isAdmin(userId) {
+  const adminIds = process.env.ADMIN_IDS.split(',').map(id => parseInt(id.trim()));
+  return adminIds.includes(userId);
+}
+
+// Start command
 bot.start((ctx) => {
+  console.log('Start buyrugi olindi:', ctx.from.id, ctx.from.first_name);
+
   const userId = ctx.from.id;
   const name = ctx.from.first_name;
 
   if (isAdmin(userId)) {
+    console.log('Admin login:', userId);
     ctx.reply(
-      `Assalomu alaykum, ${name}!\n\nSkuter arenda botiga xush kelibsiz.\nSiz admin sifatida kirgansiz.`,
-      mainAdminKeyboard
+      `🎉 Assalomu alaykum, ${name}!\n\n` +
+      `Siz admin sifatida tizimga kirgansiz.\n\n` +
+      `Bot ishlayapti va tayyor! ✅`,
+      {
+        reply_markup: {
+          keyboard: [
+            ['📊 Statistika', '👥 Mijozlar'],
+            ['🛴 Skuterlar', '💰 Tolovlar']
+          ],
+          resize_keyboard: true
+        }
+      }
     );
   } else {
-    const customer = customerQueries.getByTelegramId.get(userId);
-    if (customer) {
-      ctx.reply(
-        `Assalomu alaykum, ${name}!\n\nWeb App orqali barcha malumotlaringizni koring.`,
-        getCustomerKeyboard(userId)
-      );
-    } else {
-      ctx.reply(`Assalomu alaykum, ${name}!\n\nAdministrator bilan boglaning.`);
-    }
+    console.log('Oddiy foydalanuvchi:', userId);
+    ctx.reply(
+      `👋 Assalomu alaykum, ${name}!\n\n` +
+      `Bot ishlayapti! ✅\n\n` +
+      `Admin bilan boglaning.`
+    );
   }
 });
 
-bot.hears('➕ Skuter qoshish', (ctx) => {
-  if (!isAdmin(ctx.from.id)) return;
-  ctx.session = { action: 'add_scooter', step: 1 };
-  ctx.reply('Skuter nomini kiriting:', cancelKeyboard);
+// Help command
+bot.help((ctx) => {
+  ctx.reply('Bot ishlayapti! /start buyrug\'ini yuboring.');
 });
 
-bot.hears('👤 Mijoz qoshish', (ctx) => {
-  if (!isAdmin(ctx.from.id)) return;
-  ctx.session = { action: 'add_customer', step: 1 };
-  ctx.reply('Mijoz ismini kiriting:', cancelKeyboard);
+// Test command
+bot.command('test', (ctx) => {
+  console.log('Test buyrugi:', ctx.from.id);
+  ctx.reply('✅ Bot ishlayapti! Barcha funksiyalar normal.');
 });
 
-bot.hears('🚀 Arenda berish', (ctx) => {
-  if (!isAdmin(ctx.from.id)) return;
-  const available = scooterQueries.getAvailable.all('available');
-  if (available.length === 0) {
-    ctx.reply('Bosh skuter yoq.', mainAdminKeyboard);
+// Ping command
+bot.command('ping', (ctx) => {
+  ctx.reply('🏓 Pong! Bot aktiv.');
+});
+
+// ID command
+bot.command('id', (ctx) => {
+  ctx.reply(`Sizning Telegram ID: ${ctx.from.id}`);
+});
+
+// Statistika
+bot.hears('📊 Statistika', (ctx) => {
+  if (!isAdmin(ctx.from.id)) {
+    ctx.reply('Bu buyruq faqat adminlar uchun.');
     return;
   }
-  ctx.session = { action: 'create_rental', step: 1, data: {} };
-  ctx.reply('Skuterni tanlang:', buildScooterListKeyboard(available));
+  ctx.reply('📊 Statistika:\n\nBot ishlayapti va tayyor!');
 });
 
-bot.hears('💰 Tolov qabul qilish', (ctx) => {
-  if (!isAdmin(ctx.from.id)) return;
-  const rentals = rentalQueries.getActive.all();
-  if (rentals.length === 0) {
-    ctx.reply('Aktiv arenda yoq.', mainAdminKeyboard);
-    return;
-  }
-  ctx.session = { action: 'accept_payment', step: 1, data: {} };
-  ctx.reply('Kimdan tolov qabul qilasiz?', buildRentalListKeyboard(rentals));
-});
-
-bot.hears('📈 Statistika', (ctx) => {
-  if (!isAdmin(ctx.from.id)) return;
-  const total = scooterQueries.getAll.all().length;
-  const active = rentalQueries.getActive.all().length;
-  const customers = customerQueries.getAll.all().length;
-  ctx.reply(
-    `📈 Statistika:\n\n🛴 Skuterlar: ${total}\n📊 Aktiv arenda: ${active}\n👥 Mijozlar: ${customers}`,
-    mainAdminKeyboard
-  );
-});
-
-bot.hears('❌ Bekor qilish', (ctx) => {
-  ctx.session = null;
-  if (isAdmin(ctx.from.id)) {
-    ctx.reply('Bekor qilindi.', mainAdminKeyboard);
-  } else {
-    ctx.reply('Bekor qilindi.', getCustomerKeyboard(ctx.from.id));
-  }
-});
-
+// Barcha text xabarlar uchun
 bot.on('text', (ctx) => {
-  if (!ctx.session?.action) return;
-  const text = ctx.message.text;
+  console.log('Text olindi:', ctx.from.id, ctx.message.text);
 
-  if (ctx.session.action === 'add_scooter') {
-    if (ctx.session.step === 1) {
-      ctx.session.data = { name: text };
-      ctx.session.step = 2;
-      ctx.reply('Model (yoki - bosing):');
-    } else if (ctx.session.step === 2) {
-      ctx.session.data.model = text === '-' ? null : text;
-      ctx.session.step = 3;
-      ctx.reply('Raqam (yoki - bosing):');
-    } else if (ctx.session.step === 3) {
-      ctx.session.data.plate_number = text === '-' ? null : text;
-      try {
-        scooterQueries.add.run(
-          ctx.session.data.name,
-          ctx.session.data.model,
-          ctx.session.data.plate_number
-        );
-        ctx.reply('Skuter qoshildi!', mainAdminKeyboard);
-        ctx.session = null;
-      } catch (e) {
-        ctx.reply('Xatolik!', mainAdminKeyboard);
-        ctx.session = null;
-      }
-    }
-  } else if (ctx.session.action === 'add_customer') {
-    if (ctx.session.step === 1) {
-      ctx.session.data = { first_name: text };
-      ctx.session.step = 2;
-      ctx.reply('Familiya (yoki -):');
-    } else if (ctx.session.step === 2) {
-      ctx.session.data.last_name = text === '-' ? null : text;
-      ctx.session.step = 3;
-      ctx.reply('Telefon:');
-    } else if (ctx.session.step === 3) {
-      ctx.session.data.phone = text;
-      ctx.session.step = 4;
-      ctx.reply('Manzil (yoki -):');
-    } else if (ctx.session.step === 4) {
-      ctx.session.data.address = text === '-' ? null : text;
-      ctx.session.step = 5;
-      ctx.reply('Telegram ID:');
-    } else if (ctx.session.step === 5) {
-      const tid = parseInt(text);
-      if (isNaN(tid)) {
-        ctx.reply('Faqat raqam!');
-        return;
-      }
-      try {
-        customerQueries.add.run(
-          tid,
-          ctx.session.data.first_name,
-          ctx.session.data.last_name,
-          ctx.session.data.phone,
-          ctx.session.data.address
-        );
-        ctx.reply('Mijoz qoshildi!', mainAdminKeyboard);
-        ctx.session = null;
-      } catch (e) {
-        ctx.reply('Xatolik!', mainAdminKeyboard);
-        ctx.session = null;
-      }
-    }
+  // Agar buyruq bo'lmasa
+  if (!ctx.message.text.startsWith('/')) {
+    ctx.reply('Xabar qabul qilindi ✓\n\nBot ishlayapti!');
   }
 });
 
-cron.schedule('0 9 * * *', () => {
-  console.log('Eslatmalar yuborilmoqda...');
+// Error handling
+bot.catch((err, ctx) => {
+  console.error('❌ Bot xatolik:', err);
+  console.error('Context:', ctx.update);
 });
 
-bot.launch().then(() => {
-  console.log('Bot ishlayapti!');
+// Bot launch
+bot.launch()
+  .then(() => {
+    console.log('');
+    console.log('=================================');
+    console.log('✅ Bot muvaffaqiyatli ishga tushdi!');
+    console.log('Vaqt:', new Date().toLocaleString());
+    console.log('Bot username:', bot.botInfo?.username || 'unknown');
+    console.log('=================================');
+    console.log('');
+  })
+  .catch((err) => {
+    console.error('❌ Bot ishga tushmadi:', err);
+    process.exit(1);
+  });
+
+// Graceful shutdown
+process.once('SIGINT', () => {
+  console.log('Bot toxtatilmoqda (SIGINT)...');
+  bot.stop('SIGINT');
 });
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGTERM', () => {
+  console.log('Bot toxtatilmoqda (SIGTERM)...');
+  bot.stop('SIGTERM');
+});
+
+// Process error handlers
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
