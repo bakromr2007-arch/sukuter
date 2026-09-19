@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="container" style="padding-top: 40px;">
+    <h1>Admin Dashboard</h1>
+    <div id="stats" style="margin-top: 30px;"></div>
+</div>
+<script>
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const stats = await response.json();
+        document.getElementById('stats').innerHTML = `
+            <div class="card">
+                <p>Skuterlar: ${stats.total_scooters}</p>
+                <p>Aktiv arenda: ${stats.active_rentals}</p>
+                <p>Mijozlar: ${stats.total_customers}</p>
+            </div>
+        `;
+    } catch (error) {
+        document.getElementById('stats').innerHTML = '<p>Xatolik</p>';
+    }
+}
+loadStats();
+</script>
+{% endblock %}

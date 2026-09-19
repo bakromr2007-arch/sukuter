@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Admin kirish{% endblock %}
+{% block content %}
+<div class="container" style="padding-top: 80px;">
+    <div class="card" style="max-width: 400px; margin: 0 auto;">
+        <h2 style="text-align: center; margin-bottom: 30px;">🔐 Admin kirish</h2>
+        <form id="login-form">
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px;">Parol</label>
+                <input type="password" id="password" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Kirish</button>
+        </form>
+        <div id="error" style="margin-top: 20px; color: red; display: none;"></div>
+    </div>
+</div>
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = document.getElementById('password').value;
+    try {
+        const response = await fetch('/admin-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        if (response.ok) {
+            window.location.href = '/admin';
+        } else {
+            document.getElementById('error').textContent = 'Notogri parol';
+            document.getElementById('error').style.display = 'block';
+        }
+    } catch (error) {
+        document.getElementById('error').textContent = 'Xatolik';
+        document.getElementById('error').style.display = 'block';
+    }
+});
+</script>
+{% endblock %}
