@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Logging
@@ -14,148 +14,157 @@ logger = logging.getLogger(__name__)
 # Environment variables
 BOT_TOKEN = os.getenv('BOT_TOKEN', '')
 ADMIN_IDS = os.getenv('ADMIN_IDS', '').split(',')
-WEB_APP_URL = os.getenv('WEB_APP_URL', 'http://localhost:5000')
+WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')  # Render URL + /webhook
 
-print('=' * 50)
-print('BOT ISHGA TUSHMOQDA...')
-print('=' * 50)
+print('=' * 60)
+print('BOT ISHGA TUSHMOQDA (WEBHOOK MODE)...')
+print('=' * 60)
 print(f'BOT_TOKEN: {"✓ Mavjud" if BOT_TOKEN else "✗ YOQ"}')
 print(f'ADMIN_IDS: {ADMIN_IDS}')
-print(f'WEB_APP_URL: {WEB_APP_URL}')
-print('=' * 50)
+print(f'WEBHOOK_URL: {WEBHOOK_URL if WEBHOOK_URL else "POLLING MODE"}')
+print('=' * 60)
 
 if not BOT_TOKEN:
-    print('\n❌ XATO: BOT_TOKEN topilmadi!')
-    print('Environment Variables ni tekshiring!')
+    print('\n❌ BOT_TOKEN topilmadi!')
     sys.exit(1)
 
 def is_admin(user_id):
-    """Admin tekshirish"""
     user_id_str = str(user_id)
-    admin_list = [a.strip() for a in ADMIN_IDS if a.strip()]
-    return user_id_str in admin_list
+    return user_id_str in [a.strip() for a in ADMIN_IDS if a.strip()]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start command handler"""
+    """Start command"""
     try:
         user = update.effective_user
         user_id = user.id
         name = user.first_name
 
-        logger.info(f'Start command from: {user_id} ({name})')
+        print(f'[START] User: {user_id} ({name})')
+        logger.info(f'Start from: {user_id}')
 
-        # Admin klaviaturasi
         keyboard = [
             [KeyboardButton('📊 Statistika')],
             [KeyboardButton('🛴 Skuterlar'), KeyboardButton('👥 Mijozlar')],
-            [KeyboardButton('💰 Tolovlar')]
         ]
-
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
         if is_admin(user_id):
-            message = (
+            text = (
                 f'🎉 Assalomu alaykum, {name}!\n\n'
-                f'Siz admin sifatida kirgansiz.\n'
-                f'Bot ishlayapti va tayyor! ✅\n\n'
-                f'Telegram ID: {user_id}'
+                f'Admin panel\n'
+                f'Bot ishlayapti ✅\n\n'
+                f'ID: {user_id}'
             )
         else:
-            message = (
-                f'👋 Assalomu alaykum, {name}!\n\n'
-                f'Bot ishlayapti! ✅\n\n'
-                f'Telegram ID: {user_id}\n'
-                f'Administrator bilan boglaning.'
+            text = (
+                f'👋 Salom, {name}!\n\n'
+                f'Bot ishlayapti ✅\n'
+                f'ID: {user_id}'
             )
 
-        await update.message.reply_text(message, reply_markup=reply_markup)
-        logger.info(f'Start response sent to {user_id}')
+        await update.message.reply_text(text, reply_markup=reply_markup)
+        print(f'[START] Response sent to {user_id}')
 
     except Exception as e:
-        logger.error(f'Start command error: {e}', exc_info=True)
-        await update.message.reply_text('Xatolik yuz berdi. Qaytadan urinib koring.')
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Help command"""
-    help_text = (
-        '📖 Yordam:\n\n'
-        '/start - Botni ishga tushirish\n'
-        '/help - Yordam\n'
-        '/ping - Bot holatini tekshirish\n'
-        '/id - Telegram ID ni olish\n\n'
-        'Bot ishlayapti! ✅'
-    )
-    await update.message.reply_text(help_text)
+        print(f'[START] Error: {e}')
+        logger.error(f'Start error: {e}', exc_info=True)
 
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Ping command"""
+    """Ping"""
+    print(f'[PING] From: {update.effective_user.id}')
     await update.message.reply_text('🏓 Pong! Bot ishlayapti ✅')
-    logger.info(f'Ping from {update.effective_user.id}')
 
 async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Get user ID"""
+    """ID"""
     user_id = update.effective_user.id
-    await update.message.reply_text(f'Sizning Telegram ID: `{user_id}`', parse_mode='Markdown')
+    await update.message.reply_text(f'ID: {user_id}')
+
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Help"""
+    await update.message.reply_text(
+        '📖 Buyruqlar:\n\n'
+        '/start - Boshlash\n'
+        '/ping - Test\n'
+        '/id - ID olish\n'
+        '/help - Yordam'
+    )
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle all text messages"""
+    """Text handler"""
     try:
         text = update.message.text
         user_id = update.effective_user.id
 
-        logger.info(f'Text message from {user_id}: {text}')
+        print(f'[TEXT] {user_id}: {text}')
 
         if text == '📊 Statistika':
-            await update.message.reply_text(
-                '📊 Statistika:\n\n'
-                'Bot ishlayapti va tayyor!\n'
-                'Barcha funksiyalar normal.'
-            )
+            await update.message.reply_text('📊 Bot ishlayapti!')
         elif text == '🛴 Skuterlar':
-            await update.message.reply_text('Skuterlar bo\'limi.')
+            await update.message.reply_text('🛴 Skuterlar bolimi')
         elif text == '👥 Mijozlar':
-            await update.message.reply_text('Mijozlar bo\'limi.')
-        elif text == '💰 Tolovlar':
-            await update.message.reply_text('Tolovlar bo\'limi.')
+            await update.message.reply_text('👥 Mijozlar bolimi')
         else:
-            await update.message.reply_text('Xabar qabul qilindi ✓')
+            await update.message.reply_text('Qabul qilindi ✓')
 
     except Exception as e:
-        logger.error(f'Text handler error: {e}', exc_info=True)
+        print(f'[TEXT] Error: {e}')
+        logger.error(f'Text error: {e}')
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     """Error handler"""
-    logger.error(f'Exception: {context.error}', exc_info=context.error)
+    print(f'[ERROR] {context.error}')
+    logger.error(f'Error: {context.error}', exc_info=context.error)
+
+async def post_init(application: Application):
+    """Post init - webhook setup"""
+    if WEBHOOK_URL:
+        await application.bot.delete_webhook()
+        await application.bot.set_webhook(url=WEBHOOK_URL)
+        print(f'\n✅ WEBHOOK SOZLANDI: {WEBHOOK_URL}\n')
+    else:
+        await application.bot.delete_webhook()
+        print('\n✅ POLLING MODE\n')
 
 def main():
-    """Main function"""
+    """Main"""
     try:
-        # Application yaratish
-        app = Application.builder().token(BOT_TOKEN).build()
+        print('\n[INIT] Application yaratilmoqda...')
+
+        # Application
+        app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
         # Handlers
         app.add_handler(CommandHandler('start', start))
-        app.add_handler(CommandHandler('help', help_command))
         app.add_handler(CommandHandler('ping', ping))
         app.add_handler(CommandHandler('id', get_id))
+        app.add_handler(CommandHandler('help', help_cmd))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-
-        # Error handler
         app.add_error_handler(error_handler)
 
-        # Bot ishga tushirish
-        print('\n✅ BOT MUVAFFAQIYATLI ISHGA TUSHDI!')
-        print('Polling boshlandi...\n')
+        print('[INIT] Handlers qoshildi')
 
-        # Run polling
-        app.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True
-        )
+        # Run
+        if WEBHOOK_URL:
+            # Webhook mode
+            print(f'[RUN] WEBHOOK mode: {WEBHOOK_URL}')
+            port = int(os.getenv('PORT', 8443))
+            app.run_webhook(
+                listen='0.0.0.0',
+                port=port,
+                url_path='webhook',
+                webhook_url=WEBHOOK_URL
+            )
+        else:
+            # Polling mode
+            print('[RUN] POLLING mode')
+            app.run_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True
+            )
 
     except Exception as e:
-        logger.error(f'Bot ishga tushmadi: {e}', exc_info=True)
         print(f'\n❌ XATO: {e}\n')
+        logger.error(f'Main error: {e}', exc_info=True)
         sys.exit(1)
 
 if __name__ == '__main__':
