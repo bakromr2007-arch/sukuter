@@ -1,36 +1,49 @@
-# Skuter Arenda Bot
+# Skuter Arenda Bot - To'liq Python
 
-Telegram bot va Web App bilan skuter arenda boshqaruv tizimi.
+Telegram bot va Web App - ikkisi ham Python'da yozilgan.
 
-## Deploy qilish
+## 📦 Tuzilma
+
+```
+├── bot.py                    # Telegram bot (Python)
+├── webapp/app.py             # Flask web app
+├── requirements.txt          # Bot dependencies
+├── webapp/requirements.txt   # Web app dependencies
+├── Dockerfile                # Web app uchun
+└── Dockerfile.bot            # Bot uchun
+```
+
+## 🚀 Deploy - Render.com
 
 ### 1. GitHub'ga yuklash
 
 ```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/YOUR_USERNAME/repo.git
-git branch -M main
-git push -u origin main
+git add -A
+git commit -m "Toliq Python bot va webapp"
+git push origin main
 ```
 
-### 2. Render.com'da Web App
+### 2. Web App (Flask)
 
-- Environment: Docker
-- Dockerfile Path: Dockerfile
-- Environment Variables:
-  - PORT=5000
-  - ADMIN_PASSWORD=admin123
-  - SECRET_KEY=secret
+- **Environment:** Docker
+- **Dockerfile Path:** `Dockerfile`
+- **Environment Variables:**
+  - `PORT=5000`
+  - `ADMIN_PASSWORD=admin123`
+  - `SECRET_KEY=secret`
 
-### 3. Render.com'da Bot Worker
+### 3. Bot Worker (Python)
 
-- Environment: Docker
-- Dockerfile Path: Dockerfile.bot
-- Environment Variables:
-  - BOT_TOKEN=your_token
-  - ADMIN_IDS=123456789
-  - WEB_APP_URL=https://your-app.onrender.com
+- **Environment:** Docker
+- **Dockerfile Path:** `Dockerfile.bot`
+- **Environment Variables:**
+  - `BOT_TOKEN=<token>`
+  - `ADMIN_IDS=<id>`
+  - `WEB_APP_URL=<url>`
+
+## ✅ Test
+
+1. Web App: `https://your-app.onrender.com`
+2. Telegram bot: `/start`
 
 Tayyor!
